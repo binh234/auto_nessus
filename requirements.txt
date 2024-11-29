@@ -1,0 +1,6 @@
+pytenable
+pandas
+openpyxl
+tqdm
+argparse
+python-dotenv

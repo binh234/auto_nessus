@@ -181,7 +181,6 @@ pyrightconfig.json
 *.msg
 *.pages
 *.rtf
-*.txt
 *.wpd
 *.wps
 *.xlsx
