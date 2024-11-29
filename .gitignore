@@ -185,5 +185,6 @@ pyrightconfig.json
 *.wpd
 *.wps
 *.xlsx
+*.csv
 
 # End of https://www.toptal.com/developers/gitignore/api/python,dotenv,text
