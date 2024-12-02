@@ -3,23 +3,27 @@ import logging
 import os
 import time
 
+import coloredlogs
 import pandas as pd
 from dotenv import load_dotenv
 from tenable.nessus import Nessus
-from tqdm import tqdm
 
 load_dotenv()
+
+# Initialize logger
+logger = logging.getLogger()
+coloredlogs.install(
+    level="INFO",
+    logger=logger,
+    fmt="%(asctime)s: [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# Initialize Nessus client
 access_key = os.getenv("ACCESS_KEY")
 secret_key = os.getenv("SECRET_KEY")
 nessus_url = os.getenv("NESSUS_URL", "https://127.0.0.1:8834")
-# Initialize Tenable.io client
 nessus = Nessus(access_key=access_key, secret_key=secret_key, url=nessus_url)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s: [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 
 def main(args):
@@ -45,7 +49,7 @@ def main(args):
         ips = group["ip"].tolist()
         ip_list = ",".join(ips)
         scan_name = group.iloc[0]["name"] + "-" + ip_list
-        logging.info(f"Creating scan for IPs: {ip_list}")
+        logger.info(f"Creating scan for IPs: {ip_list}")
 
         scan_id = create_and_launch_scan(scan_name, ip_list, username, password, method, folder_id)
         if scan_id:
@@ -60,10 +64,10 @@ def create_folder(folder_name):
     folders = nessus.folders.list()
     for folder in folders:
         if folder["name"] == folder_name:
-            logging.info(f"Found existing folder {folder_name}")
+            logger.info(f"Found existing folder {folder_name}")
             return folder["id"]
 
-    logging.info(f"Creating new folder {folder_name}")
+    logger.info(f"Creating new folder {folder_name}")
     new_folder_id = nessus.folders.create(folder_name)
     return new_folder_id
 
@@ -102,7 +106,7 @@ def create_and_launch_scan(scan_name, ip_list, username, password, method, folde
             }
         }
     else:
-        logging.error(
+        logger.error(
             f"Unsupported authentication method: {method}. Skipping scan creation for {scan_name}."
         )
         return None
@@ -130,17 +134,33 @@ def download_report(output, scans):
         scans (List[Tuple]): List of (scan_id, scan_name) pairs
     """
 
-    logging.info("Downloading scan reports..")
+    logger.info("Downloading scan reports..")
+
+    # Retrieve template id
+    templates = nessus.get("reports/custom/templates", box=True)
+    template_id = None
+    template_name = "Vulnerability Operations"
+    for template in templates:
+        if template.name == template_name:
+            template_id = template.id
+            break
+
+    if template_id is None:
+        logger.error(f"Can not find template id for {template_name}")
+        return
+
     while len(scans) > 0:
         next_scans = []
         for scan_id, scan_name in scans:
             details = nessus.scans.details(scan_id)
-            if details["status"] == "completed":
+            if details["info"]["status"] == "completed":
                 # Download the report
                 report_path = os.path.join(output, f"{scan_name}_report.html")
                 with open(report_path, "wb") as f:
-                    nessus.scans.export_scan(scan_id, format="html", fobj=f)
-                logging.info(f"Report downloaded: {report_path}")
+                    nessus.scans.export_scan(
+                        scan_id, format="html", template_id=template_id, fobj=f
+                    )
+                logger.info(f"Report downloaded: {report_path}")
             else:
                 next_scans.append((scan_id, scan_name))
                 time.sleep(15)
@@ -157,6 +177,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--name", "-n", type=str, required=True, help="Name of the Nessus folder to use or create."
+    )
+    parser.add_argument(
+        "--max",
+        "-m",
+        type=int,
+        default=10,
+        help="Maximum scans to run cocurrently",
     )
     parser.add_argument(
         "--delimiter", "-d", type=str, default=",", help="CSV delimiter, defaults to ','"
