@@ -11,6 +11,8 @@ from unidecode import unidecode
 
 load_dotenv()
 
+BASIC_SCAN_UUID = "731a8e52-3ea6-a291-ec0a-d2ff0619c19d7bd788d6be818b65"
+
 # Initialize logger
 logger = logging.getLogger()
 coloredlogs.install(
@@ -137,7 +139,7 @@ def create_and_launch_scan(scan_name, ip_list, username, password, method, folde
 
     # Create and launch scan
     scan = nessus.scans.create(
-        uuid="731a8e52-3ea6-a291-ec0a-d2ff0619c19d7bd788d6be818b65",  # Basic scan
+        uuid=BASIC_SCAN_UUID,  # Basic scan
         settings={
             "name": scan_name,
             "folder_id": folder_id,
