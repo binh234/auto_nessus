@@ -1,8 +1,8 @@
 pytenable
 pandas
 openpyxl
-tqdm
 argparse
 python-dotenv
 coloredlogs
 colorama
+unidecode
