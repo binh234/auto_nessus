@@ -38,7 +38,7 @@ def main(args):
         print("Unsupported file format. Please provide a CSV or Excel file.")
         return
 
-    if args.save:
+    if not args.no_save:
         logger.info(f"Scan reports will be downloaed to directory {args.name}")
         os.makedirs(args.name, exist_ok=True)
 
@@ -67,9 +67,15 @@ def main(args):
         if len(scan_recs) >= args.max:
             complete_idx = check_completed_scan_idx(scan_recs)
             complete_id, complete_name = scan_recs.pop(complete_idx)
-            if args.save:
+            if not args.no_save:
                 download_report(args.name, complete_id, complete_name)
 
+    # Wait for all scans finish
+    while len(scan_recs) > 0:
+        complete_idx = check_completed_scan_idx(scan_recs)
+        complete_id, complete_name = scan_recs.pop(complete_idx)
+        if not args.no_save:
+            download_report(args.name, complete_id, complete_name)
 
 def create_folder(folder_name):
     folders = nessus.folders.list()
@@ -85,7 +91,9 @@ def create_folder(folder_name):
 
 def create_and_launch_scan(scan_name, ip_list, username, password, method, folder_id):
     # Prepare the credentials based on the authentication method
-    if method.lower() == "ssh":
+    if not (username and password):
+        credentials = None
+    elif method.lower() == "ssh":
         credentials = {
             "add": {
                 "Host": {
@@ -225,8 +233,7 @@ if __name__ == "__main__":
         help="Username/password delimiter, defaults to '/'. Only affect when 'Username/password' column exists",
     )
     parser.add_argument(
-        "--save",
-        "-s",
+        "--no_save",
         default=False,
         action="store_true",
         help="Whether to save reports in local directory",
